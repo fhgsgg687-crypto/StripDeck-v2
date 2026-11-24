@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Star
@@ -92,19 +93,19 @@ fun RandomActionPillButton(
             .scale(scale)
             .minimumInteractiveComponentSize()
             .testTag(testTag),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor
         ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 11.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(17.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(7.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
@@ -134,7 +135,7 @@ fun ComicSeriesCard(
             .testTag("series_card_${series.id}"),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, comicColors.inkBorder.copy(alpha = 0.28f)),
+        border = BorderStroke(1.2.dp, comicColors.inkBorder),
         tonalElevation = 2.dp
     ) {
         Row(
@@ -168,7 +169,7 @@ fun ComicSeriesCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Surface(
-                        color = accent.copy(alpha = 0.14f),
+                        color = accent.copy(alpha = 0.16f),
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
@@ -195,7 +196,7 @@ fun ComicSeriesCard(
                 )
 
                 Text(
-                    text = "by ${series.creator} • ${series.strips.size} strips",
+                    text = "by ${series.creator} • ${series.strips.size} issues",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -251,79 +252,96 @@ fun StripListPreviewCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onReadClick)
             .testTag("strip_card_${strip.id}"),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, comicColors.inkBorder.copy(alpha = 0.28f))
+        border = BorderStroke(1.2.dp, comicColors.inkBorder)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = accent.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(accent)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = series?.title ?: "Comic Strip",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "#${strip.stripNumber}",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                     color = accent,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(accent)
+                    )
+                    Text(
+                        text = series?.title ?: "Comic Issue",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (strip.isSundayColor) {
+                        Surface(
+                            color = comicColors.sundayYellow.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "SPECIAL",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = comicColors.sundayYellow,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = strip.title,
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (strip.isSundayColor) {
-                    Surface(
-                        color = comicColors.sundayYellow.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = "SUNDAY",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = comicColors.onSundayYellow,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
-                IconButton(
-                    onClick = onToggleBookmark,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .testTag("bookmark_strip_${strip.id}")
-                ) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = if (isBookmarked) "Remove bookmark" else "Bookmark strip",
-                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        imageVector = Icons.Filled.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Release: ${strip.publishDate} • ${strip.authorNote}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-
-            Text(
-                text = "#${strip.stripNumber} • ${strip.title}",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = "${strip.publishDate} • ${strip.panels.size} Panels",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Show the opening panel visually as an enticing preview
-            strip.panels.firstOrNull()?.let { firstPanel ->
-                ComicSinglePanelCard(
-                    panel = firstPanel,
-                    panelNumber = 1,
-                    panelHeight = 148.dp
+            IconButton(
+                onClick = onToggleBookmark,
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("bookmark_strip_${strip.id}")
+            ) {
+                Icon(
+                    imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = if (isBookmarked) "Remove from Pull List" else "Add to Pull List",
+                    tint = if (isBookmarked) comicColors.sundayYellow else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

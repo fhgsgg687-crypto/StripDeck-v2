@@ -5,7 +5,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,54 +27,69 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import com.example.R
 import com.example.model.ComicGenre
+import com.example.model.LibraryShelfStatus
 import com.example.model.MoodTag
+import com.example.model.WorldComicItem
 import com.example.ui.ComicUiState
-import com.example.ui.LiveXkcdUiState
-import com.example.ui.components.ComicStripPanelsView
 import com.example.ui.components.RandomActionPillButton
-import com.example.ui.theme.InkBlack
 import com.example.ui.theme.LocalComicColors
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RandomLabScreen(
     uiState: ComicUiState,
+    onRollRandomWorldAny: () -> Unit,
+    onRollRandomComicVine: () -> Unit,
+    onRollRandomWorldBook: () -> Unit,
+    onRollRandomUpcoming: () -> Unit,
+    onRollRandomWorldManga: () -> Unit,
+    onRollRandomPublicDomain: () -> Unit,
+    onToggleSaveWorldComic: (WorldComicItem) -> Unit,
+    onSaveWorldComicWithStatus: (WorldComicItem, LibraryShelfStatus) -> Unit,
+    onLoadWorldComicIssues: (WorldComicItem) -> Unit,
+    onClearWorldComicIssues: () -> Unit,
     onSpinRandomAny: () -> Unit,
     onSpinRandomByMood: (MoodTag) -> Unit,
     onSpinRandomByGenre: (ComicGenre) -> Unit,
-    onRollRandomXkcd: () -> Unit,
-    onToggleXkcdAlt: () -> Unit,
     onOpenStrip: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val comicColors = LocalComicColors.current
+    var selectedWorldDetail by remember { mutableStateOf<WorldComicItem?>(null) }
+    val savedMap = remember(uiState.preferences.savedWorldComics) {
+        uiState.preferences.savedWorldComics.associateBy { it.id }
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -100,35 +114,226 @@ fun RandomLabScreen(
                             style = MaterialTheme.typography.headlineLarge
                         )
                         Text(
-                            text = "Roll any mood, genre, or live webcomic instantly",
+                            text = "Roll any world comic, upcoming release, manga, or issue #",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Surface(
                         color = comicColors.sundayYellow,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.5.dp, InkBlack)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
                             text = "${uiState.preferences.randomRollCount} ROLLS",
                             style = MaterialTheme.typography.labelMedium,
-                            color = InkBlack,
+                            color = comicColors.onSundayYellow,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         )
                     }
                 }
             }
 
-            // Primary Big Spin Button + Live Animated Strip Deck
+            // World Comics Randomizer Section
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    RandomActionPillButton(
+                        label = "SPIN RANDOM WORLD COMIC",
+                        onClick = onRollRandomWorldAny,
+                        icon = Icons.Filled.Public,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White,
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "lab_spin_world_btn"
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RandomActionPillButton(
+                            label = "Global Book",
+                            onClick = onRollRandomWorldBook,
+                            icon = Icons.Filled.Public,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            testTag = "lab_random_book_btn"
+                        )
+                        RandomActionPillButton(
+                            label = "Upcoming",
+                            onClick = onRollRandomUpcoming,
+                            icon = Icons.Filled.Schedule,
+                            containerColor = comicColors.mint,
+                            contentColor = Color(0xFF06201D),
+                            modifier = Modifier.weight(1f),
+                            testTag = "lab_random_upcoming_btn"
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RandomActionPillButton(
+                            label = "Manga / Manhwa",
+                            onClick = onRollRandomWorldManga,
+                            icon = Icons.Filled.Casino,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            testTag = "lab_random_manga_btn"
+                        )
+                        RandomActionPillButton(
+                            label = "Classic Archive",
+                            onClick = onRollRandomPublicDomain,
+                            icon = Icons.Filled.AutoStories,
+                            containerColor = comicColors.sundayYellow,
+                            contentColor = comicColors.onSundayYellow,
+                            modifier = Modifier.weight(1f),
+                            testTag = "lab_random_classic_btn"
+                        )
+                    }
+                    RandomActionPillButton(
+                        label = if (uiState.isComicVineConfigured) {
+                            "Random Single Issue (Marvel • DC • Image)"
+                        } else {
+                            "Single Issue Picker (Add ComicVine Key)"
+                        },
+                        onClick = onRollRandomComicVine,
+                        icon = Icons.Filled.Casino,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "lab_random_comicvine_btn"
+                    )
+
+                    if (uiState.isWorldRandomLoading) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+
+                    uiState.worldSpotlight?.let { spotlight ->
+                        val isSaved = spotlight.id in savedMap
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.5.dp, comicColors.sundayYellow.copy(alpha = 0.65f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable { selectedWorldDetail = spotlight }
+                                .testTag("lab_world_spotlight_card")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.Top) {
+                                    WorldCoverBox(
+                                        coverUrl = spotlight.coverUrl,
+                                        title = spotlight.title,
+                                        width = 84.dp,
+                                        height = 120.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = spotlight.source.label.uppercase(),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = comicColors.sundayYellow
+                                        )
+                                        Text(
+                                            text = spotlight.title,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = spotlight.creator,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            spotlight.issueLabel?.let { issue ->
+                                                Surface(
+                                                    color = comicColors.sundayYellow,
+                                                    shape = RoundedCornerShape(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = issue,
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                        color = comicColors.onSundayYellow,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Release: ${spotlight.yearOrDate}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = spotlight.synopsis,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { onToggleSaveWorldComic(spotlight) },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(if (isSaved) "In Collection" else "Add Pull List")
+                                    }
+                                    OutlinedButton(
+                                        onClick = { selectedWorldDetail = spotlight },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.CalendarMonth,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Issue Dates")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Catalog Issue # Randomizer (Metadata Only — No Free Reading Panels)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     RandomActionPillButton(
-                        label = "SPIN RANDOM COMIC STRIP",
+                        label = "SPIN RANDOM CATALOG ISSUE #",
                         onClick = onSpinRandomAny,
                         icon = Icons.Filled.Casino,
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.fillMaxWidth(),
                         testTag = "lab_spin_random_btn"
                     )
@@ -143,10 +348,13 @@ fun RandomLabScreen(
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
                                 color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(2.dp, InkBlack),
+                                border = BorderStroke(1.2.dp, comicColors.inkBorder),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -165,7 +373,7 @@ fun RandomLabScreen(
                                                 color = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
-                                                text = "#${strip.stripNumber} • ${strip.title}",
+                                                text = "Issue #${strip.stripNumber} • ${strip.title}",
                                                 style = MaterialTheme.typography.titleMedium
                                             )
                                         }
@@ -183,17 +391,31 @@ fun RandomLabScreen(
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Reader")
+                                            Text("Issue Info")
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    ComicStripPanelsView(strip = strip, compactMode = true)
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Filled.CalendarMonth,
+                                            contentDescription = null,
+                                            tint = comicColors.sundayYellow,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Release Date: ${strip.publishDate}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = comicColors.sundayYellow
+                                        )
+                                    }
+
                                     Text(
-                                        text = "${strip.publishDate} — ${strip.authorNote}",
+                                        text = "${strip.authorNote} ${activeSeries?.synopsis ?: ""}".trim(),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -214,7 +436,7 @@ fun RandomLabScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Random by Mood & Vibe",
+                            text = "Random Issue by Vibe",
                             style = MaterialTheme.typography.titleLarge
                         )
                     }
@@ -227,8 +449,8 @@ fun RandomLabScreen(
                                 label = mood.label,
                                 onClick = { onSpinRandomByMood(mood) },
                                 icon = Icons.Filled.Casino,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
                                 testTag = "mood_random_${mood.name.lowercase()}"
                             )
                         }
@@ -240,7 +462,7 @@ fun RandomLabScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Random by Category",
+                        text = "Random Issue by Genre",
                         style = MaterialTheme.typography.titleLarge
                     )
                     FlowRow(
@@ -268,129 +490,12 @@ fun RandomLabScreen(
                 }
             }
 
-            // Live Webcomic XKCD Randomizer Card
-            item {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.8.dp, InkBlack),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Filled.Public,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "Live Webcomic: XKCD",
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
-                                    Text(
-                                        text = "Fetched live from xkcd.com archive",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            RandomActionPillButton(
-                                label = stringResource(R.string.btn_live_xkcd),
-                                onClick = onRollRandomXkcd,
-                                icon = Icons.Filled.Refresh,
-                                containerColor = InkBlack,
-                                contentColor = Color.White,
-                                testTag = "live_xkcd_random_btn"
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        when (val xkcd = uiState.liveXkcdState) {
-                            is LiveXkcdUiState.Idle, LiveXkcdUiState.Loading -> {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(160.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            }
-                            is LiveXkcdUiState.Error -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Could not load live XKCD right now",
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    Text(
-                                        text = "Offline mode active — all ${uiState.allSeries.size} curated comic series above work offline. Tap retry when connected.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            is LiveXkcdUiState.Success -> {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "#${xkcd.comic.number} — ${xkcd.comic.title} (${xkcd.comic.publishDate})",
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                    Surface(
-                                        color = Color.White,
-                                        shape = RoundedCornerShape(12.dp),
-                                        border = BorderStroke(1.dp, InkBlack.copy(alpha = 0.25f)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        AsyncImage(
-                                            model = xkcd.comic.imageUrl,
-                                            contentDescription = xkcd.comic.altText,
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(8.dp)
-                                                .height(220.dp)
-                                        )
-                                    }
-                                    TextButton(onClick = onToggleXkcdAlt) {
-                                        Text(
-                                            if (uiState.showXkcdAltText) "Hide Hover Alt-Text"
-                                            else "Show Secret Alt-Text"
-                                        )
-                                    }
-                                    if (uiState.showXkcdAltText) {
-                                        Text(
-                                            text = xkcd.comic.altText,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             // Recent Random Trail
             if (uiState.preferences.recentRandomIds.isNotEmpty()) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Recent Random Trail",
+                            text = "Recent Random Picks",
                             style = MaterialTheme.typography.titleLarge
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -401,9 +506,9 @@ fun RandomLabScreen(
                                     Surface(
                                         shape = RoundedCornerShape(14.dp),
                                         color = MaterialTheme.colorScheme.surface,
-                                        border = BorderStroke(1.2.dp, comicColors.inkBorder.copy(alpha = 0.3f)),
+                                        border = BorderStroke(1.2.dp, comicColors.inkBorder),
                                         modifier = Modifier
-                                            .width(170.dp)
+                                            .width(176.dp)
                                             .clip(RoundedCornerShape(14.dp))
                                             .clickable { onOpenStrip(strip.id) }
                                     ) {
@@ -422,9 +527,11 @@ fun RandomLabScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = "#${strip.stripNumber}",
+                                                text = "Issue #${strip.stripNumber} • ${strip.publishDate}",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -437,5 +544,27 @@ fun RandomLabScreen(
 
             item { Spacer(modifier = Modifier.height(12.dp)) }
         }
+    }
+
+    selectedWorldDetail?.let { item ->
+        LaunchedEffect(item.id) {
+            onLoadWorldComicIssues(item)
+        }
+        WorldComicCollectorSheet(
+            item = item,
+            savedStatus = savedMap[item.id]?.resolveShelfStatus(),
+            historyState = uiState.worldIssueHistoryState,
+            onSaveWithStatus = { status -> onSaveWorldComicWithStatus(item, status) },
+            onToggleSave = { onToggleSaveWorldComic(item) },
+            onRollRandom = {
+                onRollRandomWorldAny()
+                selectedWorldDetail = null
+                onClearWorldComicIssues()
+            },
+            onDismiss = {
+                selectedWorldDetail = null
+                onClearWorldComicIssues()
+            }
+        )
     }
 }

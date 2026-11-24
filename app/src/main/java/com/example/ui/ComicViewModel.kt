@@ -10,11 +10,14 @@ import com.example.model.ComicGenre
 import com.example.model.ComicSeries
 import com.example.model.ComicStrip
 import com.example.model.ExploreSortOption
+import com.example.model.HomeSpotlightTab
+import com.example.model.IssueTimelineEntry
 import com.example.model.LibraryShelfStatus
 import com.example.model.LiveWebcomicStrip
 import com.example.model.MoodTag
 import com.example.model.UpcomingStripRelease
 import com.example.model.WorldComicItem
+import com.example.model.WorldIssueEdition
 import com.example.model.WorldSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +36,13 @@ sealed interface WorldVaultUiState {
     data object Loading : WorldVaultUiState
     data class Success(val items: List<WorldComicItem>) : WorldVaultUiState
     data class Error(val message: String) : WorldVaultUiState
+}
+
+sealed interface WorldIssueHistoryState {
+    data object Idle : WorldIssueHistoryState
+    data object Loading : WorldIssueHistoryState
+    data class Success(val editions: List<WorldIssueEdition>) : WorldIssueHistoryState
+    data class Error(val message: String) : WorldIssueHistoryState
 }
 
 data class ComicUiState(
@@ -56,7 +66,11 @@ data class ComicUiState(
     val worldVaultState: WorldVaultUiState = WorldVaultUiState.Loading,
     val worldSpotlight: WorldComicItem? = null,
     val isWorldRandomLoading: Boolean = false,
-    val upcomingStrips: List<UpcomingStripRelease> = emptyList()
+    val upcomingStrips: List<UpcomingStripRelease> = emptyList(),
+    val issueCalendar: List<IssueTimelineEntry> = emptyList(),
+    val worldIssueHistoryState: WorldIssueHistoryState = WorldIssueHistoryState.Idle,
+    val homeSpotlightTab: HomeSpotlightTab = HomeSpotlightTab.FOR_YOU,
+    val isComicVineConfigured: Boolean = false
 )
 
 class ComicViewModel(application: Application) : AndroidViewModel(application) {
@@ -71,7 +85,9 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
             randomMixStrips = repository.pickRandomMix(3),
             labActiveStrip = repository.pickRandomStrip(),
             filteredSeries = repository.allSeries,
-            upcomingStrips = repository.getUpcomingStripSchedule()
+            upcomingStrips = repository.getUpcomingStripSchedule(),
+            issueCalendar = repository.getChronologicalIssueCalendar(),
+            isComicVineConfigured = repository.isComicVineConfigured()
         )
     )
     val uiState: StateFlow<ComicUiState> = _uiState.asStateFlow()
@@ -82,8 +98,11 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(preferences = prefs) }
             }
         }
-        loadLatestLiveXkcd()
         loadWorldComics()
+    }
+
+    fun selectHomeSpotlightTab(tab: HomeSpotlightTab) {
+        _uiState.update { it.copy(homeSpotlightTab = tab) }
     }
 
     fun getSeriesById(seriesId: String): ComicSeries? = repository.getSeriesById(seriesId)
@@ -317,12 +336,14 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.update { it.copy(isWorldRandomLoading = true) }
             val result = repository.fetchRandomWorldBookComic()
+            val picked = result.getOrNull()
             _uiState.update { state ->
                 state.copy(
                     isWorldRandomLoading = false,
-                    worldSpotlight = result.getOrNull() ?: state.worldSpotlight
+                    worldSpotlight = picked ?: state.worldSpotlight
                 )
             }
+            if (picked != null) recordRandomRoll(picked.id)
         }
     }
 
@@ -330,12 +351,14 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.update { it.copy(isWorldRandomLoading = true) }
             val result = repository.fetchRandomWorldManga()
+            val picked = result.getOrNull()
             _uiState.update { state ->
                 state.copy(
                     isWorldRandomLoading = false,
-                    worldSpotlight = result.getOrNull() ?: state.worldSpotlight
+                    worldSpotlight = picked ?: state.worldSpotlight
                 )
             }
+            if (picked != null) recordRandomRoll(picked.id)
         }
     }
 
@@ -343,12 +366,14 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.update { it.copy(isWorldRandomLoading = true) }
             val result = repository.fetchRandomPublicDomainComic()
+            val picked = result.getOrNull()
             _uiState.update { state ->
                 state.copy(
                     isWorldRandomLoading = false,
-                    worldSpotlight = result.getOrNull() ?: state.worldSpotlight
+                    worldSpotlight = picked ?: state.worldSpotlight
                 )
             }
+            if (picked != null) recordRandomRoll(picked.id)
         }
     }
 
@@ -356,12 +381,48 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.update { it.copy(isWorldRandomLoading = true) }
             val result = repository.fetchRandomUpcomingWorldComic()
+            val picked = result.getOrNull()
             _uiState.update { state ->
                 state.copy(
                     isWorldRandomLoading = false,
-                    worldSpotlight = result.getOrNull() ?: state.worldSpotlight
+                    worldSpotlight = picked ?: state.worldSpotlight
                 )
             }
+            if (picked != null) recordRandomRoll(picked.id)
+        }
+    }
+
+    fun rollRandomComicVineIssue() {
+        if (!repository.isComicVineConfigured()) {
+            selectWorldSource(WorldSource.COMICVINE)
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWorldRandomLoading = true) }
+            val result = repository.fetchRandomComicVineIssue()
+            val picked = result.getOrNull()
+            _uiState.update { state ->
+                state.copy(
+                    isWorldRandomLoading = false,
+                    worldSpotlight = picked ?: state.worldSpotlight
+                )
+            }
+            if (picked != null) recordRandomRoll(picked.id)
+        }
+    }
+
+    fun rollRandomWorldComicAny() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWorldRandomLoading = true) }
+            val result = repository.fetchRandomWorldComicAny()
+            val picked = result.getOrNull()
+            _uiState.update { state ->
+                state.copy(
+                    isWorldRandomLoading = false,
+                    worldSpotlight = picked ?: state.worldSpotlight
+                )
+            }
+            if (picked != null) recordRandomRoll(picked.id)
         }
     }
 
@@ -392,5 +453,28 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             prefsRepository.removeSavedWorldComic(id)
         }
+    }
+
+    fun loadWorldComicIssueHistory(item: WorldComicItem) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(worldIssueHistoryState = WorldIssueHistoryState.Loading) }
+            val result = repository.fetchWorldComicIssueHistory(item)
+            _uiState.update { state ->
+                state.copy(
+                    worldIssueHistoryState = result.fold(
+                        onSuccess = { WorldIssueHistoryState.Success(it) },
+                        onFailure = {
+                            WorldIssueHistoryState.Error(
+                                it.localizedMessage ?: "Could not fetch issue & release dates"
+                            )
+                        }
+                    )
+                )
+            }
+        }
+    }
+
+    fun clearWorldComicIssueHistory() {
+        _uiState.update { it.copy(worldIssueHistoryState = WorldIssueHistoryState.Idle) }
     }
 }

@@ -10,16 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Casino
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Casino
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -46,7 +46,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.R
-import com.example.model.WorldSource
 import com.example.ui.ComicViewModel
 import com.example.ui.screens.ExploreScreen
 import com.example.ui.screens.RandomLabScreen
@@ -81,23 +80,23 @@ private val topTabs = listOf(
     TopTabDestination(
         route = StripDeckRoutes.WORLD_VAULT,
         labelRes = R.string.nav_world,
-        selectedIcon = Icons.Filled.Public,
-        unselectedIcon = Icons.Outlined.Public,
+        selectedIcon = Icons.Filled.Home,
+        unselectedIcon = Icons.Outlined.Home,
         testTag = "nav_tab_world"
-    ),
-    TopTabDestination(
-        route = StripDeckRoutes.TODAY,
-        labelRes = R.string.nav_today,
-        selectedIcon = Icons.Filled.Today,
-        unselectedIcon = Icons.Outlined.Today,
-        testTag = "nav_tab_today"
     ),
     TopTabDestination(
         route = StripDeckRoutes.EXPLORE,
         labelRes = R.string.nav_explore,
-        selectedIcon = Icons.Filled.Explore,
-        unselectedIcon = Icons.Outlined.Explore,
+        selectedIcon = Icons.Filled.CalendarMonth,
+        unselectedIcon = Icons.Outlined.CalendarMonth,
         testTag = "nav_tab_explore"
+    ),
+    TopTabDestination(
+        route = StripDeckRoutes.SAVED,
+        labelRes = R.string.nav_saved,
+        selectedIcon = Icons.Filled.Inventory2,
+        unselectedIcon = Icons.Outlined.Inventory2,
+        testTag = "nav_tab_saved"
     ),
     TopTabDestination(
         route = StripDeckRoutes.RANDOM_LAB,
@@ -107,11 +106,11 @@ private val topTabs = listOf(
         testTag = "nav_tab_random"
     ),
     TopTabDestination(
-        route = StripDeckRoutes.SAVED,
-        labelRes = R.string.nav_saved,
-        selectedIcon = Icons.Filled.Bookmarks,
-        unselectedIcon = Icons.Outlined.Bookmarks,
-        testTag = "nav_tab_saved"
+        route = StripDeckRoutes.TODAY,
+        labelRes = R.string.nav_today,
+        selectedIcon = Icons.Filled.Search,
+        unselectedIcon = Icons.Outlined.Search,
+        testTag = "nav_tab_today"
     )
 )
 
@@ -146,6 +145,7 @@ fun StripDeckApp(
             bottomBar = {
                 if (isTopLevelRoute && !useNavigationRail) {
                     NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
                         windowInsets = WindowInsets.navigationBars
                     ) {
                         topTabs.forEach { tab ->
@@ -175,6 +175,7 @@ fun StripDeckApp(
             ) {
                 if (isTopLevelRoute && useNavigationRail) {
                     NavigationRail(
+                        containerColor = MaterialTheme.colorScheme.surface,
                         modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
                     ) {
                         topTabs.forEach { tab ->
@@ -201,53 +202,32 @@ fun StripDeckApp(
                         navController = navController,
                         startDestination = StripDeckRoutes.WORLD_VAULT
                     ) {
-                        composable(StripDeckRoutes.TODAY) {
-                            TodayScreen(
+                        composable(StripDeckRoutes.WORLD_VAULT) {
+                            WorldVaultScreen(
                                 uiState = uiState,
-                                onQueryChange = viewModel::updateSearchQuery,
-                                onSelectGenre = viewModel::selectGenre,
-                                onClearFilters = viewModel::clearSearchAndGenre,
-                                onOpenExploreSearch = { navigateTopTab(StripDeckRoutes.EXPLORE) },
+                                onSelectHomeTab = viewModel::selectHomeSpotlightTab,
+                                onQueryChange = viewModel::updateWorldQuery,
+                                onSearchSubmit = viewModel::loadWorldComics,
+                                onSelectSource = viewModel::selectWorldSource,
+                                onRollRandomWorldAny = viewModel::rollRandomWorldComicAny,
+                                onRollRandomComicVine = viewModel::rollRandomComicVineIssue,
+                                onRollRandomWorldBook = viewModel::rollRandomWorldBookComic,
+                                onRollRandomUpcoming = viewModel::rollRandomUpcomingWorldComic,
+                                onRollRandomWorldManga = viewModel::rollRandomWorldManga,
+                                onRollRandomPublicDomain = viewModel::rollRandomPublicDomainComic,
+                                onToggleSaveWorldComic = viewModel::toggleSaveWorldComic,
+                                onSaveWorldComicWithStatus = viewModel::saveWorldComicWithStatus,
+                                onLoadWorldComicIssues = viewModel::loadWorldComicIssueHistory,
+                                onClearWorldComicIssues = viewModel::clearWorldComicIssueHistory,
                                 onOpenSeries = { seriesId ->
                                     navController.navigate(StripDeckRoutes.seriesRoute(seriesId))
                                 },
                                 onOpenStrip = { stripId ->
                                     navController.navigate(StripDeckRoutes.readerRoute(stripId))
                                 },
-                                onRandomAnyStrip = {
-                                    val strip = viewModel.rollRandomStripForNavigation()
-                                    navController.navigate(StripDeckRoutes.readerRoute(strip.id))
-                                },
-                                onRandomSeries = {
-                                    val series = viewModel.rollRandomSeries()
-                                    navController.navigate(StripDeckRoutes.seriesRoute(series.id))
-                                },
-                                onRandomFilteredSeries = {
-                                    val picked = viewModel.rollRandomSeries(fromFiltered = true)
-                                    navController.navigate(StripDeckRoutes.seriesRoute(picked.id))
-                                },
-                                onRandomByGenre = { genre ->
-                                    val strip = viewModel.rollRandomStripForNavigation(genre = genre)
-                                    navController.navigate(StripDeckRoutes.readerRoute(strip.id))
-                                },
-                                onOpenRandomLabXkcd = {
-                                    viewModel.rollRandomLiveXkcd()
-                                    navigateTopTab(StripDeckRoutes.RANDOM_LAB)
-                                },
-                                onOpenUpcomingWorld = {
-                                    viewModel.selectWorldSource(WorldSource.UPCOMING)
-                                    navigateTopTab(StripDeckRoutes.WORLD_VAULT)
-                                },
-                                onRollFeaturedRandom = {
-                                    viewModel.rollFeaturedStripRandom()
-                                },
-                                onShuffleMix = {
-                                    viewModel.shuffleTodayMix()
-                                },
-                                onToggleFavoriteSeries = viewModel::toggleFavoriteSeries,
-                                onToggleBookmarkStrip = { stripId ->
-                                    viewModel.toggleBookmarkStrip(stripId)
-                                }
+                                onOpenSearchTab = { navigateTopTab(StripDeckRoutes.TODAY) },
+                                onLoadMore = viewModel::loadMoreWorldComics,
+                                onRetryLoad = viewModel::loadWorldComics
                             )
                         }
 
@@ -270,43 +250,6 @@ fun StripDeckApp(
                                 },
                                 onToggleFavoriteSeries = viewModel::toggleFavoriteSeries,
                                 onToggleBookmarkStrip = viewModel::toggleBookmarkStrip
-                            )
-                        }
-
-                        composable(StripDeckRoutes.WORLD_VAULT) {
-                            WorldVaultScreen(
-                                uiState = uiState,
-                                onQueryChange = viewModel::updateWorldQuery,
-                                onSearchSubmit = viewModel::loadWorldComics,
-                                onSelectSource = viewModel::selectWorldSource,
-                                onRollRandomWorldBook = viewModel::rollRandomWorldBookComic,
-                                onRollRandomUpcoming = viewModel::rollRandomUpcomingWorldComic,
-                                onRollRandomWorldManga = viewModel::rollRandomWorldManga,
-                                onRollRandomPublicDomain = viewModel::rollRandomPublicDomainComic,
-                                onToggleSaveWorldComic = viewModel::toggleSaveWorldComic,
-                                onSaveWorldComicWithStatus = viewModel::saveWorldComicWithStatus,
-                                onOpenSeries = { seriesId ->
-                                    navController.navigate(StripDeckRoutes.seriesRoute(seriesId))
-                                },
-                                onLoadMore = viewModel::loadMoreWorldComics,
-                                onRetryLoad = viewModel::loadWorldComics
-                            )
-                        }
-
-                        composable(StripDeckRoutes.RANDOM_LAB) {
-                            RandomLabScreen(
-                                uiState = uiState,
-                                onSpinRandomAny = { viewModel.rollLabRandomStrip() },
-                                onSpinRandomByMood = { mood -> viewModel.rollLabRandomStrip(mood = mood) },
-                                onSpinRandomByGenre = { genre -> viewModel.rollLabRandomStrip(genre = genre) },
-                                onRollRandomXkcd = { viewModel.rollRandomLiveXkcd() },
-                                onToggleXkcdAlt = { viewModel.toggleXkcdAltText() },
-                                onOpenStrip = { stripId ->
-                                    navController.navigate(StripDeckRoutes.readerRoute(stripId))
-                                },
-                                onOpenSeries = { seriesId ->
-                                    navController.navigate(StripDeckRoutes.seriesRoute(seriesId))
-                                }
                             )
                         }
 
@@ -334,6 +277,54 @@ fun StripDeckApp(
                                     val strip = viewModel.rollRandomStripForNavigation()
                                     navController.navigate(StripDeckRoutes.readerRoute(strip.id))
                                 }
+                            )
+                        }
+
+                        composable(StripDeckRoutes.RANDOM_LAB) {
+                            RandomLabScreen(
+                                uiState = uiState,
+                                onRollRandomWorldAny = viewModel::rollRandomWorldComicAny,
+                                onRollRandomComicVine = viewModel::rollRandomComicVineIssue,
+                                onRollRandomWorldBook = viewModel::rollRandomWorldBookComic,
+                                onRollRandomUpcoming = viewModel::rollRandomUpcomingWorldComic,
+                                onRollRandomWorldManga = viewModel::rollRandomWorldManga,
+                                onRollRandomPublicDomain = viewModel::rollRandomPublicDomainComic,
+                                onToggleSaveWorldComic = viewModel::toggleSaveWorldComic,
+                                onSaveWorldComicWithStatus = viewModel::saveWorldComicWithStatus,
+                                onLoadWorldComicIssues = viewModel::loadWorldComicIssueHistory,
+                                onClearWorldComicIssues = viewModel::clearWorldComicIssueHistory,
+                                onSpinRandomAny = { viewModel.rollLabRandomStrip() },
+                                onSpinRandomByMood = { mood -> viewModel.rollLabRandomStrip(mood = mood) },
+                                onSpinRandomByGenre = { genre -> viewModel.rollLabRandomStrip(genre = genre) },
+                                onOpenStrip = { stripId ->
+                                    navController.navigate(StripDeckRoutes.readerRoute(stripId))
+                                },
+                                onOpenSeries = { seriesId ->
+                                    navController.navigate(StripDeckRoutes.seriesRoute(seriesId))
+                                }
+                            )
+                        }
+
+                        composable(StripDeckRoutes.TODAY) {
+                            TodayScreen(
+                                uiState = uiState,
+                                onWorldQueryChange = viewModel::updateWorldQuery,
+                                onWorldSearchSubmit = viewModel::loadWorldComics,
+                                onSelectWorldSource = viewModel::selectWorldSource,
+                                onRollRandomWorldAny = viewModel::rollRandomWorldComicAny,
+                                onRandomSeries = {
+                                    val series = viewModel.rollRandomSeries()
+                                    navController.navigate(StripDeckRoutes.seriesRoute(series.id))
+                                },
+                                onToggleSaveWorldComic = viewModel::toggleSaveWorldComic,
+                                onSaveWorldComicWithStatus = viewModel::saveWorldComicWithStatus,
+                                onLoadWorldComicIssues = viewModel::loadWorldComicIssueHistory,
+                                onClearWorldComicIssues = viewModel::clearWorldComicIssueHistory,
+                                onOpenSeries = { seriesId ->
+                                    navController.navigate(StripDeckRoutes.seriesRoute(seriesId))
+                                },
+                                onToggleFavoriteSeries = viewModel::toggleFavoriteSeries,
+                                onLoadMoreWorld = viewModel::loadMoreWorldComics
                             )
                         }
 

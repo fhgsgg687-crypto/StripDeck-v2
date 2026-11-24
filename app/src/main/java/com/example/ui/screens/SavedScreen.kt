@@ -1,7 +1,5 @@
 package com.example.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,8 +21,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -50,9 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -63,12 +59,10 @@ import coil.compose.AsyncImage
 import com.example.R
 import com.example.model.LibraryShelfStatus
 import com.example.model.SavedWorldComic
-import com.example.model.WorldSource
 import com.example.ui.ComicUiState
 import com.example.ui.components.ComicSeriesCard
 import com.example.ui.components.RandomActionPillButton
 import com.example.ui.components.StripListPreviewCard
-import com.example.ui.theme.InkBlack
 import com.example.ui.theme.LocalComicColors
 
 @Composable
@@ -85,7 +79,6 @@ fun SavedScreen(
     onDiscoverRandomAny: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val comicColors = LocalComicColors.current
     var libraryQuery by remember { mutableStateOf("") }
     var selectedShelf by remember { mutableStateOf<LibraryShelfStatus?>(null) }
@@ -97,11 +90,14 @@ fun SavedScreen(
     val savedWorldAll = uiState.preferences.savedWorldComics
 
     val q = libraryQuery.trim().lowercase()
+    val cleanQ = q.removePrefix("#")
     val filteredWorld = savedWorldAll.filter { entry ->
         val matchesShelf = selectedShelf == null || entry.resolveShelfStatus() == selectedShelf
         val matchesQuery = q.isEmpty() ||
             entry.title.lowercase().contains(q) ||
             entry.creator.lowercase().contains(q) ||
+            entry.yearOrDate.lowercase().contains(q) ||
+            (entry.issueLabel?.lowercase()?.contains(q) == true) ||
             entry.genres.any { it.lowercase().contains(q) }
         matchesShelf && matchesQuery
     }
@@ -120,17 +116,13 @@ fun SavedScreen(
         emptyList()
     } else {
         bookmarkedStripsAll.filter {
-            it.title.lowercase().contains(q)
+            it.title.lowercase().contains(q) ||
+                it.publishDate.lowercase().contains(q) ||
+                it.stripNumber.toString().contains(cleanQ)
         }
     }
 
     val totalSavedCount = savedWorldAll.size + favSeriesAll.size + bookmarkedStripsAll.size
-
-    fun openExternalUrl(url: String) {
-        runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        }
-    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -151,11 +143,11 @@ fun SavedScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Digital Library",
+                            text = "Pull List & Collection",
                             style = MaterialTheme.typography.headlineLarge
                         )
                         Text(
-                            text = "$totalSavedCount collected items • World vault, series & strips",
+                            text = "$totalSavedCount tracked items • Collection, Pull List & Series",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -173,13 +165,19 @@ fun SavedScreen(
 
             // Stats Strip
             item {
+                val pullCount = savedWorldAll.count { it.resolveShelfStatus() == LibraryShelfStatus.READING }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     StatBadgeCard(
                         value = "${savedWorldAll.size}",
-                        label = "World Vault",
+                        label = "World Box",
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatBadgeCard(
+                        value = "$pullCount",
+                        label = "Pull List",
                         modifier = Modifier.weight(1f)
                     )
                     StatBadgeCard(
@@ -189,12 +187,7 @@ fun SavedScreen(
                     )
                     StatBadgeCard(
                         value = "${bookmarkedStripsAll.size}",
-                        label = "Bookmarks",
-                        modifier = Modifier.weight(1f)
-                    )
-                    StatBadgeCard(
-                        value = "${uiState.preferences.readStripIds.size}",
-                        label = "Strips Read",
+                        label = "Issues",
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -206,7 +199,7 @@ fun SavedScreen(
                         OutlinedTextField(
                             value = libraryQuery,
                             onValueChange = { libraryQuery = it },
-                            placeholder = { Text("Filter your digital library...") },
+                            placeholder = { Text("Filter collection by title, #issue, or date...") },
                             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                             trailingIcon = {
                                 if (libraryQuery.isNotEmpty()) {
@@ -232,7 +225,7 @@ fun SavedScreen(
                                     FilterChip(
                                         selected = selectedShelf == null,
                                         onClick = { selectedShelf = null },
-                                        label = { Text("All Shelves (${savedWorldAll.size})") },
+                                        label = { Text("All (${savedWorldAll.size})") },
                                         modifier = Modifier.testTag("shelf_filter_all")
                                     )
                                 }
@@ -258,7 +251,7 @@ fun SavedScreen(
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.5.dp, comicColors.inkBorder.copy(alpha = 0.25f)),
+                        border = BorderStroke(1.2.dp, comicColors.inkBorder),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp)
@@ -270,7 +263,7 @@ fun SavedScreen(
                             Icon(
                                 imageVector = Icons.Filled.Bookmarks,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = comicColors.sundayYellow,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(12.dp))
@@ -297,11 +290,11 @@ fun SavedScreen(
                             ) {
                                 Icon(Icons.Filled.Public, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Browse World Comics Hub")
+                                Text("Explore World Comics")
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             RandomActionPillButton(
-                                label = "Surprise Me with a Strip",
+                                label = "Roll Random Issue",
                                 onClick = onDiscoverRandomAny,
                                 testTag = "empty_saved_random_btn"
                             )
@@ -312,7 +305,7 @@ fun SavedScreen(
                 if (filteredWorld.isNotEmpty()) {
                     item {
                         Text(
-                            text = "World Vault Collection (${filteredWorld.size})",
+                            text = "World Collection & Pull List (${filteredWorld.size})",
                             style = MaterialTheme.typography.titleLarge
                         )
                     }
@@ -322,7 +315,6 @@ fun SavedScreen(
                             onChangeStatus = { newStatus ->
                                 onUpdateWorldComicStatus(savedItem.id, newStatus)
                             },
-                            onOpenExternal = { openExternalUrl(savedItem.externalReadUrl) },
                             onRemove = { onRemoveWorldComic(savedItem.id) }
                         )
                     }
@@ -331,7 +323,7 @@ fun SavedScreen(
                 if (filteredFavSeries.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Favorite Series (${filteredFavSeries.size})",
+                            text = "Tracked Series (${filteredFavSeries.size})",
                             style = MaterialTheme.typography.titleLarge
                         )
                     }
@@ -348,7 +340,7 @@ fun SavedScreen(
                 if (filteredBookmarkedStrips.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Bookmarked Strips (${filteredBookmarkedStrips.size})",
+                            text = "Tracked Issues (${filteredBookmarkedStrips.size})",
                             style = MaterialTheme.typography.titleLarge
                         )
                     }
@@ -375,7 +367,7 @@ fun SavedScreen(
                                 modifier = Modifier.padding(20.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("No library entries match your current filter", style = MaterialTheme.typography.titleMedium)
+                                Text("No collection entries match your filter", style = MaterialTheme.typography.titleMedium)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 OutlinedButton(onClick = {
                                     libraryQuery = ""
@@ -398,7 +390,6 @@ fun SavedScreen(
 private fun SavedWorldLibraryCard(
     entry: SavedWorldComic,
     onChangeStatus: (LibraryShelfStatus) -> Unit,
-    onOpenExternal: () -> Unit,
     onRemove: () -> Unit
 ) {
     val comicColors = LocalComicColors.current
@@ -408,7 +399,7 @@ private fun SavedWorldLibraryCard(
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, comicColors.inkBorder.copy(alpha = 0.28f)),
+        border = BorderStroke(1.2.dp, comicColors.inkBorder),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("saved_world_card_${entry.id}")
@@ -444,16 +435,31 @@ private fun SavedWorldLibraryCard(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = source.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = source.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        entry.issueLabel?.let { issue ->
+                            Surface(
+                                color = comicColors.sundayYellow,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = issue,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = comicColors.onSundayYellow,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -463,18 +469,27 @@ private fun SavedWorldLibraryCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${entry.creator} • ${entry.yearOrDate}",
+                        text = entry.creator,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = entry.statsLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.CalendarMonth,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Release: ${entry.yearOrDate}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
                 IconButton(
                     onClick = onRemove,
@@ -482,7 +497,7 @@ private fun SavedWorldLibraryCard(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.DeleteOutline,
-                        contentDescription = "Remove from Library",
+                        contentDescription = "Remove from Collection",
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -495,7 +510,6 @@ private fun SavedWorldLibraryCard(
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = if (selected) comicColors.sundayYellow else MaterialTheme.colorScheme.surfaceVariant,
-                        border = if (selected) BorderStroke(1.dp, InkBlack) else null,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { onChangeStatus(status) }
@@ -505,34 +519,11 @@ private fun SavedWorldLibraryCard(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                             ),
-                            color = if (selected) InkBlack else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            color = if (selected) comicColors.onSundayYellow else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onOpenExternal,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .minimumInteractiveComponentSize()
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    when {
-                        source == WorldSource.PUBLIC_DOMAIN -> "Read Free on Internet Archive"
-                        entry.externalReadUrl.contains("openlibrary.org") -> "Open in Open Library"
-                        else -> "View on MyAnimeList"
-                    }
-                )
             }
         }
     }
@@ -548,7 +539,7 @@ private fun StatBadgeCard(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.5.dp, comicColors.inkBorder.copy(alpha = 0.25f)),
+        border = BorderStroke(1.2.dp, comicColors.inkBorder),
         modifier = modifier
     ) {
         Column(
@@ -558,7 +549,7 @@ private fun StatBadgeCard(
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
+                color = comicColors.sundayYellow
             )
             Text(
                 text = label,

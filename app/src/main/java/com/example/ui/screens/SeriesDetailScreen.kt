@@ -221,7 +221,7 @@ fun SeriesDetailScreen(
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Action Buttons: Read Latest + Random in Series
+                            // Action Buttons: Latest Issue + Random in Series
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -242,11 +242,11 @@ fun SeriesDetailScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Read Latest")
+                                    Text("Latest Issue")
                                 }
 
                                 RandomActionPillButton(
-                                    label = "Random Strip",
+                                    label = "Random Issue",
                                     onClick = onRandomStripInSeries,
                                     icon = Icons.Filled.Casino,
                                     containerColor = accent,
@@ -263,7 +263,7 @@ fun SeriesDetailScreen(
                 item {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -279,7 +279,7 @@ fun SeriesDetailScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Syndicate Trivia",
+                                    text = "Publisher & Series Trivia",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -297,7 +297,7 @@ fun SeriesDetailScreen(
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                text = "Meet the Cast",
+                                text = "Key Characters",
                                 style = MaterialTheme.typography.titleLarge
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -309,10 +309,10 @@ fun SeriesDetailScreen(
                     }
                 }
 
-                // Strip Archive
+                // Issue Archive
                 item {
                     Text(
-                        text = "Strip Archive (${series.strips.size})",
+                        text = "Issues & Release Dates (${series.strips.size})",
                         style = MaterialTheme.typography.titleLarge
                     )
                 }

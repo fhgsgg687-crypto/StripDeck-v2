@@ -1,20 +1,15 @@
 package com.example.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Immutable
@@ -29,28 +24,28 @@ data class ComicAccentColors(
 
 val LocalComicColors = staticCompositionLocalOf {
     ComicAccentColors(
-        inkBorder = InkBlack,
+        inkBorder = ComicOutlineDark,
         sundayYellow = GoldenrodYellow,
-        onSundayYellow = OnGoldenrodContainer,
+        onSundayYellow = Color(0xFF1A1100),
         vermilion = VermilionRed,
         mint = MintTeal,
-        paperCard = PurePaperWhite
+        paperCard = MidnightCard
     )
 }
 
 private val LightColorScheme = lightColorScheme(
-    primary = CobaltInk,
+    primary = Color(0xFF1F6AF7),
     onPrimary = Color.White,
-    primaryContainer = CobaltInkContainer,
-    onPrimaryContainer = OnCobaltInkContainer,
+    primaryContainer = Color(0xFFDCE7FF),
+    onPrimaryContainer = Color(0xFF001A4D),
     secondary = VermilionRed,
     onSecondary = Color.White,
-    secondaryContainer = VermilionContainer,
-    onSecondaryContainer = OnVermilionContainer,
+    secondaryContainer = Color(0xFFFFDAD6),
+    onSecondaryContainer = Color(0xFF410002),
     tertiary = GoldenrodYellow,
-    onTertiary = OnGoldenrodContainer,
-    tertiaryContainer = GoldenrodContainer,
-    onTertiaryContainer = OnGoldenrodContainer,
+    onTertiary = Color(0xFF2B1D00),
+    tertiaryContainer = Color(0xFFFFE7A3),
+    onTertiaryContainer = Color(0xFF2B1D00),
     background = NewsprintCream,
     onBackground = InkBlack,
     surface = PurePaperWhite,
@@ -61,18 +56,18 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF7CA7FF),
-    onPrimary = Color(0xFF002D75),
-    primaryContainer = Color(0xFF14429E),
-    onPrimaryContainer = Color(0xFFDCE7FF),
-    secondary = Color(0xFFFF8A80),
-    onSecondary = Color(0xFF5F0A0A),
-    secondaryContainer = Color(0xFF8C1D18),
-    onSecondaryContainer = Color(0xFFFFDAD6),
-    tertiary = Color(0xFFFFD54F),
-    onTertiary = Color(0xFF3E2B00),
-    tertiaryContainer = Color(0xFF5D4200),
-    onTertiaryContainer = Color(0xFFFFE7A3),
+    primary = CobaltInk,
+    onPrimary = Color.White,
+    primaryContainer = CobaltInkContainer,
+    onPrimaryContainer = OnCobaltInkContainer,
+    secondary = VermilionRed,
+    onSecondary = Color.White,
+    secondaryContainer = VermilionContainer,
+    onSecondaryContainer = OnVermilionContainer,
+    tertiary = GoldenrodYellow,
+    onTertiary = Color(0xFF1F1200),
+    tertiaryContainer = GoldenrodContainer,
+    onTertiaryContainer = OnGoldenrodContainer,
     background = MidnightInk,
     onBackground = PaperCreamText,
     surface = MidnightCard,
@@ -91,33 +86,26 @@ val StripDeckShapes = Shapes(
 
 @Composable
 fun StripDeckTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val comicAccents = if (darkTheme) {
         ComicAccentColors(
-            inkBorder = Color(0xFF495063),
-            sundayYellow = Color(0xFFFFCA28),
-            onSundayYellow = Color(0xFF281B00),
-            vermilion = Color(0xFFFF6E69),
-            mint = Color(0xFF4DB6AC),
+            inkBorder = ComicOutlineDark,
+            sundayYellow = GoldenrodYellow,
+            onSundayYellow = Color(0xFF1A1100),
+            vermilion = Color(0xFFFF6B6B),
+            mint = Color(0xFF2DD4BF),
             paperCard = MidnightCard
         )
     } else {
         ComicAccentColors(
             inkBorder = InkBlack,
             sundayYellow = GoldenrodYellow,
-            onSundayYellow = OnGoldenrodContainer,
+            onSundayYellow = Color(0xFF2B1D00),
             vermilion = VermilionRed,
             mint = MintTeal,
             paperCard = PurePaperWhite

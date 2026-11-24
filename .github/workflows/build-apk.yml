@@ -47,6 +47,14 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Configure optional build secrets
+        env:
+          COMICVINE_API_KEY: ${{ secrets.COMICVINE_API_KEY }}
+        run: |
+          if [ -n "$COMICVINE_API_KEY" ]; then
+            echo "COMICVINE_API_KEY=$COMICVINE_API_KEY" > .env
+          fi
+
       - name: Build Debug APK
         run: gradle :app:assembleDebug --no-daemon --no-configuration-cache
 

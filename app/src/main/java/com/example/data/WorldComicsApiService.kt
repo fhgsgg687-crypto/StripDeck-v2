@@ -10,6 +10,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
@@ -53,6 +54,26 @@ data class JikanPublishedDto(
     val string: String? = null
 )
 
+data class JikanMangaFullResponse(
+    val data: JikanMangaFullDto? = null
+)
+
+data class JikanMangaFullDto(
+    @Json(name = "mal_id") val malId: Int = 0,
+    val title: String = "",
+    val chapters: Int? = null,
+    val volumes: Int? = null,
+    val status: String? = null,
+    val published: JikanPublishedDetailDto? = null,
+    val serializations: List<JikanNamedDto> = emptyList()
+)
+
+data class JikanPublishedDetailDto(
+    val from: String? = null,
+    val to: String? = null,
+    val string: String? = null
+)
+
 interface JikanApiService {
     @GET("manga")
     suspend fun searchManga(
@@ -65,6 +86,11 @@ interface JikanApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): JikanMangaSearchResponse
+
+    @GET("manga/{id}/full")
+    suspend fun getMangaFull(
+        @Path("id") id: Int
+    ): JikanMangaFullResponse
 
     companion object {
         private const val BASE_URL = "https://api.jikan.moe/v4/"
@@ -146,6 +172,20 @@ data class ArchiveComicDocDto(
     val subject: FlexibleText? = null
 )
 
+data class ArchiveMetadataResponse(
+    val metadata: ArchiveItemMetadataDto? = null
+)
+
+data class ArchiveItemMetadataDto(
+    val title: FlexibleText? = null,
+    val date: FlexibleText? = null,
+    val year: FlexibleText? = null,
+    val volume: FlexibleText? = null,
+    val issue: FlexibleText? = null,
+    val publisher: FlexibleText? = null,
+    val creator: FlexibleText? = null
+)
+
 interface InternetArchiveApiService {
     @GET("advancedsearch.php")
     suspend fun searchPublicDomainComics(
@@ -164,6 +204,11 @@ interface InternetArchiveApiService {
         @Query("page") page: Int = 1,
         @Query("output") output: String = "json"
     ): ArchiveSearchResponse
+
+    @GET("metadata/{identifier}")
+    suspend fun getItemMetadata(
+        @Path("identifier") identifier: String
+    ): ArchiveMetadataResponse
 
     companion object {
         private const val BASE_URL = "https://archive.org/"
@@ -206,6 +251,20 @@ data class OpenLibraryDocDto(
     @Json(name = "ratings_average") val ratingsAverage: Double? = null
 )
 
+data class OpenLibraryEditionsResponse(
+    val entries: List<OpenLibraryEditionDto> = emptyList()
+)
+
+data class OpenLibraryEditionDto(
+    val key: String = "",
+    val title: String = "",
+    @Json(name = "publish_date") val publishDate: String? = null,
+    val publishers: List<String> = emptyList(),
+    @Json(name = "number_of_pages") val numberOfPages: Int? = null,
+    val series: List<String> = emptyList(),
+    @Json(name = "physical_format") val physicalFormat: String? = null
+)
+
 interface OpenLibraryApiService {
     @GET("search.json")
     suspend fun searchGlobalComics(
@@ -216,6 +275,12 @@ interface OpenLibraryApiService {
         @Query("limit") limit: Int = 20,
         @Query("page") page: Int = 1
     ): OpenLibrarySearchResponse
+
+    @GET("works/{workId}/editions.json")
+    suspend fun getWorkEditions(
+        @Path("workId") workId: String,
+        @Query("limit") limit: Int = 25
+    ): OpenLibraryEditionsResponse
 
     companion object {
         private const val BASE_URL = "https://openlibrary.org/"

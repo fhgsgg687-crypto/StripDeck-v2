@@ -119,6 +119,7 @@ enum class ExploreSortOption(val label: String) {
 }
 
 enum class WorldSource(val label: String) {
+    COMICVINE("ComicVine Issues"),
     WORLD_CATALOG("Global Comics & Books"),
     UPCOMING("Upcoming Releases"),
     PUBLIC_DOMAIN("Public Domain Vault"),
@@ -133,11 +134,32 @@ data class WorldComicItem(
     val title: String,
     val creator: String,
     val yearOrDate: String,
+    val issueLabel: String? = null,
     val genres: List<String>,
     val synopsis: String,
     val coverUrl: String?,
     val statsLabel: String,
     val externalReadUrl: String
+)
+
+data class WorldIssueEdition(
+    val issueOrEditionTitle: String,
+    val releaseDate: String,
+    val publisherOrDetail: String
+)
+
+data class IssueTimelineEntry(
+    val id: String,
+    val seriesId: String,
+    val seriesTitle: String,
+    val issueNumber: Int,
+    val title: String,
+    val releaseDate: String,
+    val sortKey: Long,
+    val isUpcoming: Boolean,
+    val statusLabel: String,
+    val stripId: String?,
+    val accentHex: Long
 )
 
 data class UpcomingStripRelease(
@@ -153,11 +175,17 @@ data class UpcomingStripRelease(
     val accentHex: Long
 )
 
+enum class HomeSpotlightTab(val label: String) {
+    FOR_YOU("For You"),
+    FEATURED("Featured"),
+    PICK_OF_THE_WEEK("Pick of the Week")
+}
+
 enum class LibraryShelfStatus(val label: String) {
-    COLLECTED("Collected"),
-    READING("Reading"),
-    WANT_TO_READ("Want to Read"),
-    COMPLETED("Completed")
+    COLLECTED("Collection"),
+    READING("Pull List"),
+    WANT_TO_READ("Wishlist"),
+    COMPLETED("Logged")
 }
 
 data class SavedWorldComic(
@@ -166,6 +194,7 @@ data class SavedWorldComic(
     val title: String,
     val creator: String,
     val yearOrDate: String,
+    val issueLabel: String? = null,
     val genres: List<String>,
     val synopsis: String,
     val coverUrl: String?,
@@ -186,6 +215,7 @@ data class SavedWorldComic(
         title = title,
         creator = creator,
         yearOrDate = yearOrDate,
+        issueLabel = issueLabel,
         genres = genres,
         synopsis = synopsis,
         coverUrl = coverUrl,
@@ -207,6 +237,7 @@ fun WorldComicItem.toSavedWorldComic(
     title = title,
     creator = creator,
     yearOrDate = yearOrDate,
+    issueLabel = issueLabel,
     genres = genres,
     synopsis = synopsis,
     coverUrl = coverUrl,
