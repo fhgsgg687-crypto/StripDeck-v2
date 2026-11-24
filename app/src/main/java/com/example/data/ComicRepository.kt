@@ -29,8 +29,11 @@ class ComicRepository(
         const val COMICVINE_PLACEHOLDER = "COMICVINE_API_KEY_PLACEHOLDER"
     }
 
+    private fun resolvedComicVineKey(): String =
+        comicVineApiKeyProvider().trim().trim('"', '\'')
+
     fun isComicVineConfigured(): Boolean {
-        val key = comicVineApiKeyProvider().trim()
+        val key = resolvedComicVineKey()
         return key.isNotBlank() && key != COMICVINE_PLACEHOLDER
     }
     val allSeries: List<ComicSeries> = (ComicCatalogPart1.series + ComicCatalogPart2.series)
@@ -359,7 +362,7 @@ class ComicRepository(
         page: Int = 1
     ): Result<List<WorldComicItem>> = coroutineScope {
         val cleanQuery = query.trim()
-        val cvKey = comicVineApiKeyProvider().trim().takeIf { isComicVineConfigured() }
+        val cvKey = resolvedComicVineKey().takeIf { isComicVineConfigured() }
 
         if (sourceFilter == WorldSource.COMICVINE) {
             if (cvKey == null) {
@@ -654,7 +657,7 @@ class ComicRepository(
     }
 
     suspend fun fetchRandomComicVineIssue(): Result<WorldComicItem> = runCatching {
-        val cvKey = comicVineApiKeyProvider().trim()
+        val cvKey = resolvedComicVineKey()
         require(isComicVineConfigured()) { "COMICVINE_API_KEY is not configured" }
         val randomOffset = Random.nextInt(0, 600)
         val resp = comicVineApiService.getIssues(
@@ -778,7 +781,7 @@ class ComicRepository(
                 }
             }
             item.id.startsWith("cv_vol_") -> {
-                val cvKey = comicVineApiKeyProvider().trim()
+                val cvKey = resolvedComicVineKey()
                 if (!isComicVineConfigured()) return@runCatching emptyList()
                 val volId = item.id.removePrefix("cv_vol_").toIntOrNull()
                     ?: throw IllegalArgumentException("Invalid ComicVine Volume ID")
@@ -806,7 +809,7 @@ class ComicRepository(
                 }
             }
             item.id.startsWith("cv_iss_") -> {
-                val cvKey = comicVineApiKeyProvider().trim()
+                val cvKey = resolvedComicVineKey()
                 if (!isComicVineConfigured()) return@runCatching emptyList()
                 val issueId = item.id.removePrefix("cv_iss_").toIntOrNull()
                     ?: throw IllegalArgumentException("Invalid ComicVine Issue ID")

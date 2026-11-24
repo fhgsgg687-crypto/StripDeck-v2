@@ -281,7 +281,7 @@ fun WorldVaultScreen(
                             testTag = "world_random_book_btn"
                         )
                         RandomActionPillButton(
-                            label = "Random Upcoming",
+                            label = "Random Drop",
                             onClick = onRollRandomUpcoming,
                             icon = Icons.Filled.Schedule,
                             containerColor = comicColors.mint,
@@ -344,11 +344,18 @@ fun WorldVaultScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "New & Trending World Comics",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                text = "New & Trending Comics",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                             TextButton(onClick = onOpenSearchTab) {
-                                Text("Search All")
+                                Text(
+                                    text = "Search All",
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
 
@@ -895,7 +902,12 @@ private fun LeagueHeroSpotlightCard(
                     ) {
                         Icon(Icons.Filled.Casino, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Random Hero", style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                        Text(
+                            text = "Random",
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
 
                     OutlinedButton(
@@ -915,10 +927,11 @@ private fun LeagueHeroSpotlightCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isSaved) "In Collection" else "Add Pull List",
+                            text = if (isSaved) "Saved" else "Pull List",
                             color = Color.White,
                             style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

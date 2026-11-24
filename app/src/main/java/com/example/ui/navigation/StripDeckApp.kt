@@ -160,7 +160,15 @@ fun StripDeckApp(
                                         contentDescription = label
                                     )
                                 },
-                                label = { Text(label) },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                },
                                 modifier = Modifier.testTag(tab.testTag)
                             )
                         }
