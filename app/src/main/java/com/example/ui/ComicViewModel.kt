@@ -68,6 +68,8 @@ data class ComicUiState(
     val isWorldRandomLoading: Boolean = false,
     val upcomingStrips: List<UpcomingStripRelease> = emptyList(),
     val issueCalendar: List<IssueTimelineEntry> = emptyList(),
+    val liveCalendarIssues: List<WorldComicItem> = emptyList(),
+    val isCalendarLoading: Boolean = false,
     val worldIssueHistoryState: WorldIssueHistoryState = WorldIssueHistoryState.Idle,
     val homeSpotlightTab: HomeSpotlightTab = HomeSpotlightTab.FOR_YOU,
     val isComicVineConfigured: Boolean = false
@@ -87,6 +89,7 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
             filteredSeries = repository.allSeries,
             upcomingStrips = repository.getUpcomingStripSchedule(),
             issueCalendar = repository.getChronologicalIssueCalendar(),
+            worldSourceFilter = if (repository.isComicVineConfigured()) WorldSource.COMICVINE else null,
             isComicVineConfigured = repository.isComicVineConfigured()
         )
     )
@@ -99,6 +102,23 @@ class ComicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         loadWorldComics()
+        if (repository.isComicVineConfigured()) {
+            loadLiveCalendarIssues()
+        }
+    }
+
+    fun loadLiveCalendarIssues() {
+        if (!repository.isComicVineConfigured()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCalendarLoading = true) }
+            val result = repository.fetchLiveComicVineReleaseCalendar(page = 1)
+            _uiState.update { state ->
+                state.copy(
+                    isCalendarLoading = false,
+                    liveCalendarIssues = result.getOrNull() ?: state.liveCalendarIssues
+                )
+            }
+        }
     }
 
     fun selectHomeSpotlightTab(tab: HomeSpotlightTab) {

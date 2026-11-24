@@ -388,7 +388,12 @@ class ComicRepository(
                 if (resp.statusCode != 1) {
                     throw IllegalStateException(resp.error.ifBlank { "ComicVine error ${resp.statusCode}" })
                 }
-                resp.results.mapNotNull { it.toWorldComicItem(WorldSource.COMICVINE) }
+                val mapped = resp.results.mapNotNull { it.toWorldComicItem(WorldSource.COMICVINE) }
+                if (cleanQuery.isNotBlank()) {
+                    mapped.sortedByDescending { it.id.startsWith("cv_iss_") }
+                } else {
+                    mapped
+                }
             }
         }
 
@@ -510,7 +515,7 @@ class ComicRepository(
         val catalogDeferred = if (fetchCatalog) {
             async {
                 runCatching {
-                    val olQuery = cleanQuery.ifBlank { "comics OR graphic novel OR strip" }
+                    val olQuery = cleanQuery.ifBlank { "\"graphic novel\" OR \"comic book\"" }
                     openLibraryApiService.searchGlobalComics(
                         query = olQuery,
                         subject = "comics",
@@ -675,6 +680,21 @@ class ComicRepository(
         pool[Random.nextInt(pool.size)]
     }
 
+    suspend fun fetchLiveComicVineReleaseCalendar(page: Int = 1): Result<List<WorldComicItem>> = runCatching {
+        val cvKey = resolvedComicVineKey()
+        require(isComicVineConfigured()) { "COMICVINE_API_KEY is not configured" }
+        val resp = comicVineApiService.getIssues(
+            apiKey = cvKey,
+            sort = "store_date:desc",
+            limit = 30,
+            offset = (page - 1) * 30
+        )
+        if (resp.statusCode != 1) {
+            throw IllegalStateException(resp.error.ifBlank { "ComicVine error ${resp.statusCode}" })
+        }
+        resp.results.mapNotNull { it.toWorldComicItem(WorldSource.COMICVINE) }
+    }
+
     suspend fun fetchRandomWorldComicAny(): Result<WorldComicItem> {
         val rollChoices = if (isComicVineConfigured()) 5 else 4
         return when (Random.nextInt(rollChoices)) {
@@ -686,12 +706,90 @@ class ComicRepository(
         }
     }
 
+    private suspend fun fetchComicVineIssuesByTitle(title: String, cvKey: String): List<WorldIssueEdition> {
+        val cleanTitle = title
+            .replace(Regex("\\s*\\([^)]*\\)"), "")
+            .replace(Regex("\\s*#\\d+.*$"), "")
+            .trim()
+        if (cleanTitle.length < 2) return emptyList()
+        val searchResp = runCatching {
+            comicVineApiService.searchResources(
+                apiKey = cvKey,
+                query = cleanTitle,
+                resources = "volume,issue",
+                limit = 15,
+                page = 1
+            )
+        }.getOrNull() ?: return emptyList()
+        if (searchResp.statusCode != 1) return emptyList()
+
+        val matchedVolume = searchResp.results.firstOrNull {
+            it.resourceType.equals("volume", ignoreCase = true) || it.countOfIssues != null
+        }
+        if (matchedVolume != null && matchedVolume.id > 0) {
+            val volIssuesResp = runCatching {
+                comicVineApiService.getIssues(
+                    apiKey = cvKey,
+                    filter = "volume:${matchedVolume.id}",
+                    sort = "store_date:desc",
+                    limit = 40
+                )
+            }.getOrNull()
+            if (volIssuesResp != null && volIssuesResp.statusCode == 1 && volIssuesResp.results.isNotEmpty()) {
+                return volIssuesResp.results
+                    .sortedByDescending { it.issueNumber?.trim()?.toDoubleOrNull() ?: -1.0 }
+                    .map { iss ->
+                        val issNum = iss.issueNumber?.takeIf { it.isNotBlank() } ?: "?"
+                        val issTitle = iss.name?.takeIf { it.isNotBlank() }
+                        val label = if (issTitle != null) "Issue #$issNum • $issTitle" else "Issue #$issNum"
+                        val relDate = iss.storeDate?.takeIf { it.isNotBlank() }
+                            ?: iss.coverDate?.takeIf { it.isNotBlank() }
+                            ?: "Indexed"
+                        WorldIssueEdition(
+                            issueOrEditionTitle = label,
+                            releaseDate = relDate,
+                            publisherOrDetail = iss.volume?.name ?: matchedVolume.name ?: cleanTitle
+                        )
+                    }
+            }
+        }
+
+        return searchResp.results
+            .filter { it.resourceType.equals("issue", ignoreCase = true) || !it.issueNumber.isNullOrBlank() }
+            .sortedByDescending { it.issueNumber?.trim()?.toDoubleOrNull() ?: -1.0 }
+            .map { iss ->
+                val issNum = iss.issueNumber?.takeIf { it.isNotBlank() } ?: "?"
+                val vol = iss.volume?.name?.takeIf { it.isNotBlank() }
+                val issTitle = iss.name?.takeIf { it.isNotBlank() }
+                val titlePart = listOfNotNull(vol, issTitle).joinToString(": ")
+                val label = if (titlePart.isNotBlank()) "Issue #$issNum • $titlePart" else "Issue #$issNum"
+                val relDate = iss.storeDate?.takeIf { it.isNotBlank() }
+                    ?: iss.coverDate?.takeIf { it.isNotBlank() }
+                    ?: iss.startYear?.takeIf { it.isNotBlank() }
+                    ?: "Indexed"
+                WorldIssueEdition(
+                    issueOrEditionTitle = label,
+                    releaseDate = relDate,
+                    publisherOrDetail = iss.publisher?.name ?: vol ?: "ComicVine"
+                )
+            }
+    }
+
     suspend fun fetchWorldComicIssueHistory(item: WorldComicItem): Result<List<WorldIssueEdition>> = runCatching {
+        val cvKey = resolvedComicVineKey().takeIf { isComicVineConfigured() }
         when {
-            item.id.startsWith("ol_") -> {
+            item.id.startsWith("ol_") -> coroutineScope {
                 val workId = item.id.removePrefix("ol_")
-                val editions = openLibraryApiService.getWorkEditions(workId, limit = 25).entries
-                val mapped = editions.mapNotNull { ed ->
+                val editionsDeferred = async {
+                    runCatching { openLibraryApiService.getWorkEditions(workId, limit = 25).entries }.getOrNull().orEmpty()
+                }
+                val cvCrossDeferred = if (cvKey != null) {
+                    async { fetchComicVineIssuesByTitle(item.title, cvKey) }
+                } else null
+
+                val editions = editionsDeferred.await()
+                val cvIssues = cvCrossDeferred?.await().orEmpty()
+                val olMapped = editions.mapNotNull { ed ->
                     val pubDate = ed.publishDate?.trim()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                     val issueOrTitle = buildString {
                         val extracted = extractIssueOrVolumeLabel(ed.title)
@@ -716,7 +814,8 @@ class ComicRepository(
                     )
                 }.distinctBy { "${it.issueOrEditionTitle}_${it.releaseDate}" }
 
-                mapped.ifEmpty {
+                val merged = (cvIssues + olMapped).distinctBy { "${it.issueOrEditionTitle}_${it.releaseDate}" }
+                merged.ifEmpty {
                     listOf(
                         WorldIssueEdition(
                             issueOrEditionTitle = item.issueLabel ?: "First Indexed Edition",
@@ -726,9 +825,17 @@ class ComicRepository(
                     )
                 }
             }
-            item.id.startsWith("archive_") -> {
+            item.id.startsWith("archive_") -> coroutineScope {
                 val identifier = item.id.removePrefix("archive_")
-                val meta = archiveApiService.getItemMetadata(identifier).metadata
+                val metaDeferred = async {
+                    runCatching { archiveApiService.getItemMetadata(identifier).metadata }.getOrNull()
+                }
+                val cvCrossDeferred = if (cvKey != null) {
+                    async { fetchComicVineIssuesByTitle(item.title, cvKey) }
+                } else null
+
+                val meta = metaDeferred.await()
+                val cvIssues = cvCrossDeferred?.await().orEmpty()
                 val exactDate = meta?.date?.value?.trim()?.takeIf { it.isNotBlank() }
                     ?: meta?.year?.value?.trim()?.takeIf { it.isNotBlank() }
                     ?: item.yearOrDate
@@ -741,13 +848,12 @@ class ComicRepository(
                     meta?.creator?.value?.trim()?.takeIf { it.isNotBlank() },
                     "Internet Archive Public Domain"
                 ).joinToString(" • ")
-                listOf(
-                    WorldIssueEdition(
-                        issueOrEditionTitle = "$issueLabel — ${meta?.title?.value ?: item.title}",
-                        releaseDate = exactDate,
-                        publisherOrDetail = detail
-                    )
+                val primaryEntry = WorldIssueEdition(
+                    issueOrEditionTitle = "$issueLabel — ${meta?.title?.value ?: item.title}",
+                    releaseDate = exactDate,
+                    publisherOrDetail = detail
                 )
+                (listOf(primaryEntry) + cvIssues).distinctBy { "${it.issueOrEditionTitle}_${it.releaseDate}" }
             }
             item.id.startsWith("jikan_") -> {
                 val malId = item.id.removePrefix("jikan_").toIntOrNull()
@@ -781,36 +887,36 @@ class ComicRepository(
                 }
             }
             item.id.startsWith("cv_vol_") -> {
-                val cvKey = resolvedComicVineKey()
-                if (!isComicVineConfigured()) return@runCatching emptyList()
+                if (cvKey == null) return@runCatching emptyList()
                 val volId = item.id.removePrefix("cv_vol_").toIntOrNull()
                     ?: throw IllegalArgumentException("Invalid ComicVine Volume ID")
                 val resp = comicVineApiService.getIssues(
                     apiKey = cvKey,
                     filter = "volume:$volId",
-                    sort = "issue_number:desc",
-                    limit = 25
+                    sort = "store_date:desc",
+                    limit = 50
                 )
                 if (resp.statusCode != 1) {
                     throw IllegalStateException(resp.error.ifBlank { "ComicVine error ${resp.statusCode}" })
                 }
-                resp.results.map { iss ->
-                    val issNum = iss.issueNumber?.takeIf { it.isNotBlank() } ?: "?"
-                    val issTitle = iss.name?.takeIf { it.isNotBlank() }
-                    val label = if (issTitle != null) "Issue #$issNum • $issTitle" else "Issue #$issNum"
-                    val relDate = iss.storeDate?.takeIf { it.isNotBlank() }
-                        ?: iss.coverDate?.takeIf { it.isNotBlank() }
-                        ?: item.yearOrDate
-                    WorldIssueEdition(
-                        issueOrEditionTitle = label,
-                        releaseDate = relDate,
-                        publisherOrDetail = iss.volume?.name ?: item.title
-                    )
-                }
+                resp.results
+                    .sortedByDescending { it.issueNumber?.trim()?.toDoubleOrNull() ?: -1.0 }
+                    .map { iss ->
+                        val issNum = iss.issueNumber?.takeIf { it.isNotBlank() } ?: "?"
+                        val issTitle = iss.name?.takeIf { it.isNotBlank() }
+                        val label = if (issTitle != null) "Issue #$issNum • $issTitle" else "Issue #$issNum"
+                        val relDate = iss.storeDate?.takeIf { it.isNotBlank() }
+                            ?: iss.coverDate?.takeIf { it.isNotBlank() }
+                            ?: item.yearOrDate
+                        WorldIssueEdition(
+                            issueOrEditionTitle = label,
+                            releaseDate = relDate,
+                            publisherOrDetail = iss.volume?.name ?: item.title
+                        )
+                    }
             }
-            item.id.startsWith("cv_iss_") -> {
-                val cvKey = resolvedComicVineKey()
-                if (!isComicVineConfigured()) return@runCatching emptyList()
+            item.id.startsWith("cv_iss_") -> coroutineScope {
+                if (cvKey == null) return@coroutineScope emptyList()
                 val issueId = item.id.removePrefix("cv_iss_").toIntOrNull()
                     ?: throw IllegalArgumentException("Invalid ComicVine Issue ID")
                 val resp = comicVineApiService.getIssueDetail(id = issueId, apiKey = cvKey)
@@ -818,7 +924,36 @@ class ComicRepository(
                     throw IllegalStateException(resp.error.ifBlank { "ComicVine error ${resp.statusCode}" })
                 }
                 val detail = resp.results
-                buildList {
+                val volumeId = detail?.volume?.id
+                val siblingIssues = if (volumeId != null && volumeId > 0) {
+                    runCatching {
+                        val volResp = comicVineApiService.getIssues(
+                            apiKey = cvKey,
+                            filter = "volume:$volumeId",
+                            sort = "store_date:desc",
+                            limit = 40
+                        )
+                        if (volResp.statusCode == 1) {
+                            volResp.results
+                                .sortedByDescending { it.issueNumber?.trim()?.toDoubleOrNull() ?: -1.0 }
+                                .map { iss ->
+                                    val issNum = iss.issueNumber?.takeIf { it.isNotBlank() } ?: "?"
+                                    val issTitle = iss.name?.takeIf { it.isNotBlank() }
+                                    val label = if (issTitle != null) "Issue #$issNum • $issTitle" else "Issue #$issNum"
+                                    val relDate = iss.storeDate?.takeIf { it.isNotBlank() }
+                                        ?: iss.coverDate?.takeIf { it.isNotBlank() }
+                                        ?: item.yearOrDate
+                                    WorldIssueEdition(
+                                        issueOrEditionTitle = label,
+                                        releaseDate = relDate,
+                                        publisherOrDetail = iss.volume?.name ?: item.creator
+                                    )
+                                }
+                        } else emptyList()
+                    }.getOrNull().orEmpty()
+                } else emptyList()
+
+                val detailCards = buildList {
                     detail?.storeDate?.takeIf { it.isNotBlank() }?.let { storeDate ->
                         add(
                             WorldIssueEdition(
@@ -854,7 +989,10 @@ class ComicRepository(
                             )
                         )
                     }
-                }.ifEmpty {
+                }
+
+                val combined = (detailCards + siblingIssues).distinctBy { "${it.issueOrEditionTitle}_${it.releaseDate}" }
+                combined.ifEmpty {
                     listOf(
                         WorldIssueEdition(
                             issueOrEditionTitle = item.issueLabel ?: "Single Issue",
@@ -875,6 +1013,8 @@ class ComicRepository(
         val authors = authorName.take(2).joinToString(", ").ifBlank { "Global Comic Creator" }
         val yearStr = firstPublishYear?.toString() ?: "Scheduled"
         val issueBadge = extractIssueOrVolumeLabel(title)
+            ?: editionCount?.takeIf { it > 1 }?.let { "$it Editions" }
+            ?: "Graphic Novel"
         val ratingStr = ratingsAverage?.let { "★ ${String.format("%.1f", it)}" }
             ?: if (overrideSource == WorldSource.UPCOMING) "Upcoming Release" else "World Catalog"
         val genresList = subject.filter { it.length in 3..26 }.take(3).ifEmpty {

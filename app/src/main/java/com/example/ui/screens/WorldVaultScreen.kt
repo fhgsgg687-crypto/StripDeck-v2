@@ -1216,8 +1216,11 @@ fun WorldComicCollectorSheet(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
+                        val countSuffix = (historyState as? WorldIssueHistoryState.Success)?.let {
+                            if (it.editions.isNotEmpty()) " (${it.editions.size})" else ""
+                        }.orEmpty()
                         Text(
-                            text = "Issues, Editions & Release Dates",
+                            text = "Issues, Editions & Release Dates$countSuffix",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -1254,7 +1257,7 @@ fun WorldComicCollectorSheet(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             } else {
-                                historyState.editions.take(8).forEach { ed ->
+                                historyState.editions.take(40).forEach { ed ->
                                     Surface(
                                         shape = RoundedCornerShape(10.dp),
                                         color = MaterialTheme.colorScheme.surface,

@@ -257,7 +257,12 @@ fun StripDeckApp(
                                     navController.navigate(StripDeckRoutes.readerRoute(stripId))
                                 },
                                 onToggleFavoriteSeries = viewModel::toggleFavoriteSeries,
-                                onToggleBookmarkStrip = viewModel::toggleBookmarkStrip
+                                onToggleBookmarkStrip = viewModel::toggleBookmarkStrip,
+                                onToggleSaveWorldComic = viewModel::toggleSaveWorldComic,
+                                onSaveWorldComicWithStatus = viewModel::saveWorldComicWithStatus,
+                                onLoadWorldComicIssues = viewModel::loadWorldComicIssueHistory,
+                                onClearWorldComicIssues = viewModel::clearWorldComicIssueHistory,
+                                onRollRandomComicVine = viewModel::rollRandomComicVineIssue
                             )
                         }
 

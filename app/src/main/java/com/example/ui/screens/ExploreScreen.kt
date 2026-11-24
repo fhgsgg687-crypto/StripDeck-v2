@@ -27,12 +27,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +52,8 @@ import com.example.R
 import com.example.model.ComicGenre
 import com.example.model.ExploreSortOption
 import com.example.model.IssueTimelineEntry
+import com.example.model.LibraryShelfStatus
+import com.example.model.WorldComicItem
 import com.example.ui.ComicUiState
 import com.example.ui.components.ComicSeriesCard
 import com.example.ui.components.RandomActionPillButton
@@ -68,10 +72,19 @@ fun ExploreScreen(
     onOpenStrip: (String) -> Unit,
     onToggleFavoriteSeries: (String) -> Unit,
     onToggleBookmarkStrip: (String) -> Unit,
+    onToggleSaveWorldComic: (WorldComicItem) -> Unit,
+    onSaveWorldComicWithStatus: (WorldComicItem, LibraryShelfStatus) -> Unit,
+    onLoadWorldComicIssues: (WorldComicItem) -> Unit,
+    onClearWorldComicIssues: () -> Unit,
+    onRollRandomComicVine: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showIssueTimeline by remember { mutableStateOf(true) }
     var releaseFilterMode by remember { mutableStateOf(0) } // 0 = All, 1 = Upcoming, 2 = Released
+    var selectedWorldIssue by remember { mutableStateOf<WorldComicItem?>(null) }
+    val savedWorldMap = remember(uiState.preferences.savedWorldComics) {
+        uiState.preferences.savedWorldComics.associateBy { it.id }
+    }
 
     val seriesGenreMap = remember(uiState.allSeries) {
         uiState.allSeries.associate { it.id to it.genre }
@@ -99,6 +112,15 @@ fun ExploreScreen(
             matchesMode && matchesGenre && matchesQ
         }
     }
+    val filteredLiveCalendar = remember(uiState.liveCalendarIssues, uiState.searchQuery) {
+        uiState.liveCalendarIssues.filter { item ->
+            q.isEmpty() ||
+                item.title.lowercase().contains(q) ||
+                item.creator.lowercase().contains(q) ||
+                item.yearOrDate.lowercase().contains(q) ||
+                (item.issueLabel?.lowercase()?.contains(q) == true)
+        }
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -124,7 +146,7 @@ fun ExploreScreen(
                     )
                     Text(
                         text = if (showIssueTimeline) {
-                            "${filteredTimeline.size} issues by release date"
+                            "${filteredLiveCalendar.size + filteredTimeline.size} issues by release date"
                         } else {
                             "${uiState.filteredSeries.size} series matching"
                         },
@@ -253,7 +275,11 @@ fun ExploreScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (showIssueTimeline) {
-                if (filteredTimeline.isEmpty()) {
+                if (uiState.isCalendarLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+                if (filteredLiveCalendar.isEmpty() && filteredTimeline.isEmpty()) {
                     EmptyDirectoryState(
                         query = uiState.searchQuery,
                         onClearFilters = onClearFilters
@@ -263,17 +289,42 @@ fun ExploreScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 20.dp)
                     ) {
-                        items(filteredTimeline, key = { "exp_tl_${it.id}" }) { entry ->
-                            ExploreIssueTimelineCard(
-                                entry = entry,
-                                onClick = {
-                                    if (entry.stripId != null) {
-                                        onOpenStrip(entry.stripId)
-                                    } else {
-                                        onOpenSeries(entry.seriesId)
+                        if (filteredLiveCalendar.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Live Single-Issue Releases (${filteredLiveCalendar.size})",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            items(filteredLiveCalendar, key = { "exp_cv_${it.id}" }) { item ->
+                                WorldComicCard(
+                                    item = item,
+                                    savedStatus = savedWorldMap[item.id]?.resolveShelfStatus(),
+                                    onToggleSave = { onToggleSaveWorldComic(item) },
+                                    onClick = { selectedWorldIssue = item }
+                                )
+                            }
+                        }
+                        if (filteredTimeline.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Curated Issue Schedule (${filteredTimeline.size})",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                            items(filteredTimeline, key = { "exp_tl_${it.id}" }) { entry ->
+                                ExploreIssueTimelineCard(
+                                    entry = entry,
+                                    onClick = {
+                                        if (entry.stripId != null) {
+                                            onOpenStrip(entry.stripId)
+                                        } else {
+                                            onOpenSeries(entry.seriesId)
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -318,6 +369,28 @@ fun ExploreScreen(
                 }
             }
         }
+    }
+
+    selectedWorldIssue?.let { item ->
+        LaunchedEffect(item.id) {
+            onLoadWorldComicIssues(item)
+        }
+        WorldComicCollectorSheet(
+            item = item,
+            savedStatus = savedWorldMap[item.id]?.resolveShelfStatus(),
+            historyState = uiState.worldIssueHistoryState,
+            onSaveWithStatus = { status -> onSaveWorldComicWithStatus(item, status) },
+            onToggleSave = { onToggleSaveWorldComic(item) },
+            onRollRandom = {
+                onRollRandomComicVine()
+                selectedWorldIssue = null
+                onClearWorldComicIssues()
+            },
+            onDismiss = {
+                selectedWorldIssue = null
+                onClearWorldComicIssues()
+            }
+        )
     }
 }
 

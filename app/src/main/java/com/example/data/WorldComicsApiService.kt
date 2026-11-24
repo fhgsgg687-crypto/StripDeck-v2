@@ -248,7 +248,8 @@ data class OpenLibraryDocDto(
     @Json(name = "first_publish_year") val firstPublishYear: Int? = null,
     @Json(name = "cover_i") val coverId: Int? = null,
     val subject: List<String> = emptyList(),
-    @Json(name = "ratings_average") val ratingsAverage: Double? = null
+    @Json(name = "ratings_average") val ratingsAverage: Double? = null,
+    @Json(name = "edition_count") val editionCount: Int? = null
 )
 
 data class OpenLibraryEditionsResponse(
@@ -271,7 +272,7 @@ interface OpenLibraryApiService {
         @Query("q") query: String,
         @Query("subject") subject: String = "comics",
         @Query("sort") sort: String? = "rating",
-        @Query("fields") fields: String = "key,title,author_name,first_publish_year,cover_i,subject,ratings_average",
+        @Query("fields") fields: String = "key,title,author_name,first_publish_year,cover_i,subject,ratings_average,edition_count",
         @Query("limit") limit: Int = 20,
         @Query("page") page: Int = 1
     ): OpenLibrarySearchResponse
