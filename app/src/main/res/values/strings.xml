@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">StripDeck</string>
+    <string name="nav_today">Today</string>
+    <string name="nav_explore">Explore</string>
+    <string name="nav_world">World</string>
+    <string name="nav_random">Random</string>
+    <string name="nav_saved">Library</string>
+    <string name="hero_subtitle">Global Digital Comics Library &amp; Strips</string>
+    <string name="btn_random_strip">Random Strip</string>
+    <string name="btn_random_series">Random Series</string>
+    <string name="btn_shuffle_mix">Shuffle 3 More</string>
+    <string name="btn_live_xkcd">Random Live XKCD</string>
+    <string name="search_placeholder">Search comics by title or genre...</string>
+    <string name="empty_saved_title">Your Digital Library is empty</string>
+    <string name="empty_saved_desc">Save any World comic, manga, classic archive issue, series, or strip to build your personal Digital Comic Library.</string>
+</resources>

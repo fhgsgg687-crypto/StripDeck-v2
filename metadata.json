@@ -1,0 +1,6 @@
+{
+  "name": "StripDeck",
+  "description": "GoComics-style comic strip archive, series directory, live webcomics, and instant random strip discovery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
